@@ -1,0 +1,49 @@
+# Configuration for the data collection pipeline.
+# Every value here can be changed without touching the code.
+
+seed: 42
+
+paths:
+  db: data/raw/github.db
+  log: data/raw/collector.log
+
+github:
+  api_url: https://api.github.com
+  timeout: 30            # seconds per HTTP request
+  max_retries: 6         # retries for 5xx / network errors / secondary rate limits
+  backoff_base: 2.0      # exponential backoff: base ** attempt seconds (+ jitter)
+  backoff_max: 300       # cap on a single backoff sleep, seconds
+  min_remaining:         # pause until reset when the remaining quota drops to this
+    core: 25
+    search: 1
+
+sampling:
+  # Star ranges are inclusive. max: null means "no upper bound".
+  buckets:
+    - {name: "10-100",  min: 10,    max: 99}
+    - {name: "100-1k",  min: 100,   max: 999}
+    - {name: "1k-10k",  min: 1000,  max: 9999}
+    - {name: "10k+",    min: 10000, max: null}
+  target_per_bucket: 1000
+  years: [2012, 2025]    # inclusive range of creation years
+  # name = label used in the dataset, slug = GitHub search qualifier value
+  languages:
+    - {name: Python,     slug: python}
+    - {name: JavaScript, slug: javascript}
+    - {name: TypeScript, slug: typescript}
+    - {name: Java,       slug: java}
+    - {name: Go,         slug: go}
+    - {name: Rust,       slug: rust}
+    - {name: C++,        slug: cpp}
+    - {name: C,          slug: c}
+    - {name: C#,         slug: csharp}
+    - {name: PHP,        slug: php}
+    - {name: Ruby,       slug: ruby}
+    - {name: Swift,      slug: swift}
+  include_other: true    # extra group "Other" = every language not listed above (incl. none)
+  max_per_window: 3      # max repos taken from a single search result page (spreads the sample)
+  redistribute_rounds: 3 # passes that move unused quota from exhausted strata to others
+
+enrich:
+  stats_max_attempts: 6  # /stats/commit_activity often answers 202 "computing" at first
+  stats_retry_wait: 60   # seconds to wait before re-polling a 202 response

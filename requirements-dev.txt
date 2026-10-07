@@ -1,0 +1,10 @@
+-r requirements.txt
+
+# Data collection
+requests>=2.32
+python-dotenv>=1.0
+tqdm>=4.66
+
+# Testing
+pytest>=8.0
+responses>=0.25

@@ -1,0 +1,5 @@
+# Runtime dependencies (used by the Streamlit app / Streamlit Community Cloud)
+numpy>=1.26
+pandas>=2.2
+pyarrow>=16.0
+pyyaml>=6.0
