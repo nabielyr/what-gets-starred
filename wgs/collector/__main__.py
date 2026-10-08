@@ -1,11 +1,12 @@
 """Command line entry point: python -m wgs.collector <command>.
 
 Commands
-  run        census (full runs only) -> discover -> enrich
-  census     population count for every stratum
-  discover   sample repositories per stratum
-  enrich     repo details, README and commit stats for discovered repos
-  status     progress report and remaining API quota
+  run           census (full runs only) -> discover -> enrich -> star-history
+  census        population count for every stratum
+  discover      sample repositories per stratum
+  enrich        repo details, README and commit stats for discovered repos
+  star-history  daily star counts from GH Archive for repos with 100+ stars
+  status        progress report and remaining API quota
 
 Use --limit N for a small test run; it writes to data/raw/sample.db unless --db is given.
 Every command can be interrupted with Ctrl+C and resumed by running it again.
@@ -26,6 +27,7 @@ from wgs.collector.client import GitHubClient
 from wgs.collector.db import Database, utcnow
 from wgs.collector.discover import run_census, run_discover
 from wgs.collector.enrich import run_enrich
+from wgs.collector.star_history import run_star_history
 from wgs.config import DEFAULT_CONFIG_PATH, ROOT, Config, get_github_token, load_config
 
 log = logging.getLogger("wgs.collector")
@@ -85,6 +87,11 @@ def print_status(db: Database, client: GitHubClient | None, cfg: Config) -> None
         pct = f"{100 * done / total:.0f}%" if total else "-"
         print(f"  {table:<16} {done:>6}/{total:<6} {pct:>4}   ({detail})")
 
+    history = db.star_history_summary()
+    eligible = len(db.repos_needing_star_history(cfg.star_history.buckets)) + sum(history.values())
+    detail = ", ".join(f"{k} {v}" for k, v in sorted(history.items())) or "-"
+    print(f"  {'star_history':<16} {sum(history.values()):>6}/{eligible:<6}        ({detail})")
+
     if client is not None:
         try:
             res = client.rate_limit_status()
@@ -100,7 +107,9 @@ def print_status(db: Database, client: GitHubClient | None, cfg: Config) -> None
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m wgs.collector", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["run", "census", "discover", "enrich", "status"])
+    parser.add_argument(
+        "command", choices=["run", "census", "discover", "enrich", "star-history", "status"]
+    )
     parser.add_argument("--limit", type=int, help="small test run with about N repos (uses data/raw/sample.db)")
     parser.add_argument("--db", help="SQLite database path (overrides config.yaml)")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH, help="path to config.yaml")
@@ -129,6 +138,8 @@ def main(argv: list[str] | None = None) -> int:
                 run_discover(client, db, cfg)
             if args.command in ("run", "enrich"):
                 run_enrich(client, db, cfg)
+            if args.command in ("run", "star-history"):
+                run_star_history(db, cfg)
     except KeyboardInterrupt:
         log.warning("Interrupted. Progress is saved; run the same command again to resume.")
         return 130

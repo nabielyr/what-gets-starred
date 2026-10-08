@@ -48,3 +48,11 @@ enrich:
   stats_max_attempts: 6  # /stats/commit_activity often answers 202 "computing" at first
   stats_retry_wait: 60   # seconds to wait before re-polling a 202 response
   stats_timeout: 20      # huge repos can hang on the stats endpoint; give up quickly
+
+star_history:
+  # GitHub restricted stargazer lists to repo admins in July 2026, so star dates come from
+  # GH Archive, queried for free through ClickHouse's public playground.
+  url: https://play.clickhouse.com/
+  user: play
+  buckets: ["100-1k", "1k-10k", "10k+"]   # 10-100 never reaches a meaningful milestone
+  batch_size: 50                         # repos per query

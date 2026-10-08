@@ -59,6 +59,16 @@ class EnrichSettings:
 
 
 @dataclass(frozen=True)
+class StarHistorySettings:
+    url: str = "https://play.clickhouse.com/"
+    user: str = "play"
+    buckets: tuple[str, ...] = ("100-1k", "1k-10k", "10k+")
+    batch_size: int = 50
+    timeout: float = 120
+    max_retries: int = 5
+
+
+@dataclass(frozen=True)
 class Config:
     seed: int
     db_path: Path
@@ -66,6 +76,7 @@ class Config:
     github: GitHubSettings
     sampling: SamplingSettings
     enrich: EnrichSettings
+    star_history: StarHistorySettings = field(default_factory=StarHistorySettings)
 
     def with_target(self, target_per_bucket: int) -> "Config":
         return replace(self, sampling=replace(self.sampling, target_per_bucket=target_per_bucket))
@@ -107,6 +118,9 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
         github=GitHubSettings(**raw.get("github", {})),
         sampling=sampling,
         enrich=EnrichSettings(**raw.get("enrich", {})),
+        star_history=StarHistorySettings(
+            **{k: tuple(v) if isinstance(v, list) else v for k, v in raw.get("star_history", {}).items()}
+        ),
     )
 
 

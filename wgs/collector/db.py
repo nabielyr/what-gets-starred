@@ -102,6 +102,24 @@ CREATE TABLE IF NOT EXISTS commit_activity (
     total_52w   INTEGER,
     fetched_at  TEXT NOT NULL
 );
+
+-- Daily star counts from GH Archive (WatchEvent), for repos in the configured buckets.
+-- GitHub's own stargazer list has been restricted to repo admins since July 2026.
+CREATE TABLE IF NOT EXISTS star_history (
+    repo_id    INTEGER PRIMARY KEY REFERENCES repos(id),
+    status     TEXT NOT NULL,               -- ok | no_events
+    events     INTEGER NOT NULL,            -- star events found (no unstars in the archive)
+    first_day  TEXT,
+    last_day   TEXT,
+    fetched_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS star_daily (
+    repo_id INTEGER NOT NULL REFERENCES repos(id),
+    day     TEXT NOT NULL,
+    stars   INTEGER NOT NULL,
+    PRIMARY KEY (repo_id, day)
+);
 """
 
 # Statuses after which a stage is never retried for that repo.
@@ -320,6 +338,52 @@ class Database:
             "SELECT r.id, r.full_name, c.attempts, c.fetched_at FROM commit_activity c "
             "JOIN repos r ON r.id = c.repo_id WHERE c.status IN ('pending', 'error') ORDER BY r.id"
         ).fetchall()
+
+    # ------------------------------------------------------------------ star history
+    def repos_needing_star_history(self, buckets: Iterable[str]) -> list[sqlite3.Row]:
+        """Repos without star history yet, with the name seen at discovery and the current one.
+
+        The two differ when a repo was renamed or transferred; the archive files events under
+        the name used at the time, so both are worth querying.
+        """
+        buckets = list(buckets)
+        placeholders = ", ".join("?" for _ in buckets)
+        return self.conn.execute(
+            f"SELECT r.id, r.full_name, "
+            f"COALESCE(json_extract(d.raw_json, '$.full_name'), r.full_name) AS current_name "
+            f"FROM repos r JOIN repo_details d ON d.repo_id = r.id "
+            f"LEFT JOIN star_history h ON h.repo_id = r.id "
+            f"WHERE r.bucket IN ({placeholders}) AND d.status = 'ok' AND h.repo_id IS NULL "
+            f"ORDER BY r.id",
+            buckets,
+        ).fetchall()
+
+    def save_star_history(self, repo_id: int, daily: list[tuple[str, int]]) -> None:
+        """Store one repo's daily star counts and its summary in a single transaction."""
+        with self.conn:
+            self.conn.execute("DELETE FROM star_daily WHERE repo_id = ?", (repo_id,))
+            self.conn.executemany(
+                "INSERT INTO star_daily (repo_id, day, stars) VALUES (?, ?, ?)",
+                [(repo_id, day, n) for day, n in daily],
+            )
+            days = [day for day, _ in daily]
+            self.conn.execute(
+                "INSERT OR REPLACE INTO star_history VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    repo_id,
+                    "ok" if daily else "no_events",
+                    sum(n for _, n in daily),
+                    min(days) if days else None,
+                    max(days) if days else None,
+                    utcnow(),
+                ),
+            )
+
+    def star_history_summary(self) -> dict[str, int]:
+        rows = self.conn.execute(
+            "SELECT status, COUNT(*) AS n FROM star_history GROUP BY status"
+        ).fetchall()
+        return {r["status"]: r["n"] for r in rows}
 
     # ------------------------------------------------------------------ reporting
     def stage_summary(self) -> dict[str, dict[str, int]]:
