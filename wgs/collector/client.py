@@ -25,10 +25,20 @@ from wgs.config import GitHubSettings
 log = logging.getLogger(__name__)
 
 RETRYABLE_STATUS = {500, 502, 503, 504}
+MAX_RATE_LIMIT_WAITS = 20  # safety net against an endless rate-limit loop
 
 
 class GitHubAPIError(RuntimeError):
     """Raised when a request keeps failing after all retries."""
+
+
+def safe_get(client: "GitHubClient", path: str, **kwargs) -> requests.Response | None:
+    """GET that turns "failed after all retries" into None, so one bad repo never stops a run."""
+    try:
+        return client.get(path, **kwargs)
+    except GitHubAPIError as exc:
+        log.warning("Giving up on %s for now: %s", path, exc)
+        return None
 
 
 @dataclass
@@ -71,42 +81,51 @@ class GitHubClient:
         *,
         accept: str | None = None,
         resource: str = "core",
+        max_retries: int | None = None,
+        timeout: float | None = None,
     ) -> requests.Response:
         url = path if path.startswith("http") else f"{self.settings.api_url}{path}"
         headers = {"Accept": accept} if accept else None
+        retries = self.settings.max_retries if max_retries is None else max_retries
+        failures = rate_limited = 0
         last_error: str = ""
 
-        for attempt in range(self.settings.max_retries + 1):
+        # Failures (errors, timeouts) and rate-limit waits are counted separately: waiting for
+        # a quota is expected behaviour, not a sign that the request is broken.
+        while failures <= retries and rate_limited <= MAX_RATE_LIMIT_WAITS:
             self._wait_for_quota(resource)
             try:
                 resp = self.session.get(
-                    url, params=params, headers=headers, timeout=self.settings.timeout
+                    url, params=params, headers=headers, timeout=timeout or self.settings.timeout
                 )
             except (requests.ConnectionError, requests.Timeout) as exc:
                 last_error = f"{type(exc).__name__}: {exc}"
-                self._backoff(attempt, last_error)
+                failures += 1
+                self._backoff(failures - 1, last_error, final=failures > retries)
                 continue
 
             self.request_count += 1
             self._update_limits(resp, resource)
 
             if resp.status_code in (403, 429):
-                wait = self._rate_limit_wait(resp, resource, attempt)
+                wait = self._rate_limit_wait(resp, resource, rate_limited)
                 if wait is None:
                     return resp  # a genuine 403, e.g. "Repository access blocked"
                 last_error = f"rate limited ({resp.status_code})"
+                rate_limited += 1
                 log.warning("%s on %s, sleeping %.0fs", last_error, path, wait)
                 self._sleep(wait)
                 continue
 
             if resp.status_code in RETRYABLE_STATUS:
                 last_error = f"HTTP {resp.status_code}"
-                self._backoff(attempt, last_error)
+                failures += 1
+                self._backoff(failures - 1, last_error, final=failures > retries)
                 continue
 
             return resp
 
-        raise GitHubAPIError(f"GET {path} failed after {self.settings.max_retries} retries: {last_error}")
+        raise GitHubAPIError(f"GET {path} failed after {retries} retries: {last_error}")
 
     def rate_limit_status(self) -> dict:
         """Current quotas. Calling /rate_limit does not count against the quota."""
@@ -163,7 +182,9 @@ class GitHubClient:
         base = self.settings.backoff_base**attempt
         return min(base + random.uniform(0, 1), self.settings.backoff_max)
 
-    def _backoff(self, attempt: int, reason: str) -> None:
+    def _backoff(self, attempt: int, reason: str, final: bool = False) -> None:
+        if final:
+            return  # no retry follows, so there is nothing to wait for
         wait = self._backoff_seconds(attempt)
         log.warning("%s, retry %d in %.1fs", reason, attempt + 1, wait)
         self._sleep(wait)

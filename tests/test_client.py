@@ -113,3 +113,22 @@ def test_404_is_returned_without_retry(client, clock):
     responses.get(f"{API}/repos/a/b", status=404, json={"message": "Not Found"})
     assert client.get("/repos/a/b").status_code == 404
     assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_rate_limit_waits_do_not_use_up_retries(client, clock):
+    for _ in range(3):
+        responses.get(f"{API}/repos/a/b", status=429, headers={"Retry-After": "5"})
+    responses.get(f"{API}/repos/a/b", json={"id": 1})
+    resp = client.get("/repos/a/b", max_retries=0)
+    assert resp.status_code == 200
+    assert clock.sleeps == [5, 5, 5]
+
+
+@responses.activate
+def test_no_backoff_after_the_final_failure(client, clock):
+    responses.get(f"{API}/repos/a/b", status=500)
+    with pytest.raises(GitHubAPIError):
+        client.get("/repos/a/b", max_retries=1)
+    assert len(responses.calls) == 2
+    assert len(clock.sleeps) == 1
