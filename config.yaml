@@ -47,3 +47,4 @@ sampling:
 enrich:
   stats_max_attempts: 6  # /stats/commit_activity often answers 202 "computing" at first
   stats_retry_wait: 60   # seconds to wait before re-polling a 202 response
+  stats_timeout: 20      # huge repos can hang on the stats endpoint; give up quickly

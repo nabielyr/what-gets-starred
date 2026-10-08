@@ -159,3 +159,22 @@ def test_one_failing_repo_does_not_stop_the_run(client, db, cfg):
     assert status("commit_activity", 1) == "unavailable"  # gave up after max attempts
     assert status("repo_details", 2) == "ok" and status("commit_activity", 2) == "empty"
     assert [r["id"] for r in db.repos_needing("readmes")] == [1]
+
+
+@responses.activate
+def test_hanging_commit_stats_are_given_up_quickly(client, db, cfg):
+    import requests
+
+    cfg = replace(cfg, enrich=EnrichSettings(stats_max_attempts=6, stats_retry_wait=0))
+    add_repo(db, 1)
+    responses.get(f"{API}/repos/o/r1", json={"id": 1})
+    responses.get(f"{API}/repos/o/r1/readme", status=404, json={})
+    responses.get(f"{API}/repos/o/r1/stats/commit_activity", body=requests.ReadTimeout("slow"))
+
+    run_enrich(client, db, cfg)
+
+    row = db.conn.execute("SELECT * FROM commit_activity WHERE repo_id = 1").fetchone()
+    assert row["status"] == "unavailable"
+    assert row["attempts"] == 2  # not the full 6
+    stats_calls = [c for c in responses.calls if "commit_activity" in c.request.url]
+    assert len(stats_calls) == 4  # 2 attempts x (1 try + 1 retry)

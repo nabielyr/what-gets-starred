@@ -55,6 +55,7 @@ class SamplingSettings:
 class EnrichSettings:
     stats_max_attempts: int = 6
     stats_retry_wait: float = 60
+    stats_timeout: float = 20
 
 
 @dataclass(frozen=True)
