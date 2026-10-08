@@ -48,9 +48,28 @@ popularity by year) do not depend on the balanced sample.
 For each sampled repo the collector stores the repository metadata, the README text and the
 number of commits per week over the last 52 weeks.
 
+### Star history from GH Archive
+
+GitHub [restricted the stargazer listing endpoints](https://github.blog/changelog/2026-06-30-upcoming-access-restrictions-to-public-api-endpoints-and-ui-views/)
+to repository admins and collaborators in July 2026, so the date of each star can no longer be read
+from the API. Instead, daily star counts come from [GH Archive](https://www.gharchive.org/), a
+public record of GitHub events since 2011 in which every star is a `WatchEvent`. The archive is
+queried through ClickHouse's free [public playground](https://play.clickhouse.com/), so it needs no
+download and no GitHub quota. This is done for every sampled repo with 100+ stars.
+
+The archive is not a perfect mirror of GitHub:
+- it misses some events, so a repo usually shows somewhat fewer star events than its real star count;
+- unstars are not recorded, so the count can also be slightly higher;
+- events are filed under the repo name at the time, so history from before a rename or transfer is
+  lost. The collector queries both the name seen at discovery and the current name.
+
+Each repo therefore gets a **coverage ratio** (archive events ÷ current stars), and repos with low
+coverage are excluded from the time-to-milestone analysis.
+
 ```bash
 python -m wgs.collector run --limit 50   # quick test run -> data/raw/sample.db
 python -m wgs.collector run              # full run (about 4,000 repos, several hours)
+python -m wgs.collector star-history     # only the GH Archive step
 python -m wgs.collector status           # progress and remaining API quota
 ```
 
