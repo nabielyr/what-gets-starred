@@ -1,0 +1,48 @@
+{
+  "snapshot": "2026-10-08",
+  "rows": 4000,
+  "rows_per_bucket": {
+    "10-100": 1000,
+    "100-1k": 1000,
+    "1k-10k": 1000,
+    "10k+": 1000
+  },
+  "duplicate_ids": 0,
+  "negative_age": 0,
+  "negative_days_since_push": 0,
+  "stars_drifted_out_of_bucket": 0,
+  "readme_missing": 56,
+  "commit_stats_missing": 5,
+  "list_repos": 100,
+  "inactive_share": 0.515,
+  "star_history": {
+    "repos": 2984,
+    "reliable": 2468,
+    "median_coverage": 0.928,
+    "monthly_rows": 194657
+  },
+  "population_strata": 728,
+  "columns_with_nulls": {
+    "days_to_10000_from_first_star": 0.75,
+    "days_to_10000": 0.75,
+    "weeks_since_last_commit": 0.507,
+    "days_to_1000_from_first_star": 0.501,
+    "days_to_1000": 0.501,
+    "launch_lag_days": 0.254,
+    "days_to_100": 0.254,
+    "days_to_100_from_first_star": 0.254,
+    "first_star_date": 0.254,
+    "coverage": 0.254,
+    "archive_events": 0.254,
+    "archive_stars_365d": 0.254,
+    "history_status": 0.25,
+    "homepage": 0.222,
+    "license": 0.19,
+    "description": 0.047,
+    "commits_per_month": 0.001,
+    "active_weeks_52": 0.001,
+    "commits_52w": 0.001
+  },
+  "ok": true,
+  "problems": []
+}
