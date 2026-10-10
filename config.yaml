@@ -56,3 +56,10 @@ star_history:
   user: play
   buckets: ["100-1k", "1k-10k", "10k+"]   # 10-100 never reaches a meaningful milestone
   batch_size: 50                         # repos per query
+
+features:
+  processed_dir: data/processed
+  inactive_days: 365                 # inactive = archived, or no push / no commit for this long
+  milestones: [100, 1000, 10000]     # time-to-N-stars, from GH Archive star history
+  coverage_range: [0.5, 1.5]         # archive events / stars needed to trust a star history
+  popular_buckets: ["1k-10k", "10k+"]  # reference group for README benchmarks

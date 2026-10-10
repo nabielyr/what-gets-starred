@@ -69,6 +69,15 @@ class StarHistorySettings:
 
 
 @dataclass(frozen=True)
+class FeatureSettings:
+    processed_dir: Path = ROOT / "data" / "processed"
+    inactive_days: int = 365
+    milestones: tuple[int, ...] = (100, 1000, 10000)
+    coverage_range: tuple[float, float] = (0.5, 1.5)
+    popular_buckets: tuple[str, ...] = ("1k-10k", "10k+")
+
+
+@dataclass(frozen=True)
 class Config:
     seed: int
     db_path: Path
@@ -77,6 +86,7 @@ class Config:
     sampling: SamplingSettings
     enrich: EnrichSettings
     star_history: StarHistorySettings = field(default_factory=StarHistorySettings)
+    features: FeatureSettings = field(default_factory=FeatureSettings)
 
     def with_target(self, target_per_bucket: int) -> "Config":
         return replace(self, sampling=replace(self.sampling, target_per_bucket=target_per_bucket))
@@ -121,7 +131,15 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
         star_history=StarHistorySettings(
             **{k: tuple(v) if isinstance(v, list) else v for k, v in raw.get("star_history", {}).items()}
         ),
+        features=_feature_settings(raw.get("features", {})),
     )
+
+
+def _feature_settings(raw: dict) -> FeatureSettings:
+    values = {k: tuple(v) if isinstance(v, list) else v for k, v in raw.items()}
+    if "processed_dir" in values:
+        values["processed_dir"] = ROOT / values["processed_dir"]
+    return FeatureSettings(**values)
 
 
 def get_github_token() -> str:
