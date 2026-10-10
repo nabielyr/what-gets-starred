@@ -18,6 +18,7 @@ import argparse
 import logging
 import math
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -33,6 +34,26 @@ from wgs.config import DEFAULT_CONFIG_PATH, ROOT, Config, get_github_token, load
 log = logging.getLogger("wgs.collector")
 
 SAMPLE_DB = ROOT / "data" / "raw" / "sample.db"
+
+
+@contextmanager
+def keep_awake():
+    """Ask Windows not to go to sleep while a long run is in progress (no-op elsewhere).
+
+    Idle sleep would freeze the run for hours; closing the lid can still suspend it.
+    """
+    if sys.platform != "win32":
+        yield
+        return
+    import ctypes
+
+    es_continuous, es_system_required = 0x80000000, 0x00000001
+    kernel32 = ctypes.windll.kernel32
+    kernel32.SetThreadExecutionState(es_continuous | es_system_required)
+    try:
+        yield
+    finally:
+        kernel32.SetThreadExecutionState(es_continuous)
 
 
 def setup_logging(log_path: Path) -> None:
@@ -131,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     log.info("Using database %s", cfg.db_path)
 
     try:
-        with logging_redirect_tqdm():
+        with logging_redirect_tqdm(), keep_awake():
             if args.command in ("run", "census") and (args.command == "census" or not args.limit or args.census):
                 run_census(client, db, cfg)
             if args.command in ("run", "discover"):
