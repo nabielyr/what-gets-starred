@@ -13,6 +13,9 @@ wgs/                 shared Python package
   config.py          loads config.yaml and the token from .env
   collector/         GitHub API client, SQLite storage, sampling, enrichment, GH Archive, CLI
   features/          README parser, metadata and growth features, build pipeline
+  analysis.py        weights, statistics and chart style shared by the notebooks
+notebooks/           01_analysis.ipynb (research questions), 02_model.ipynb (popularity model)
+models/              README-only random forest used by the dashboard
 tests/               pytest suite (API calls are mocked)
 config.yaml          sampling design and pipeline settings
 data/raw/            SQLite database and logs (not committed)
@@ -149,6 +152,36 @@ is never published, only features derived from it.
 
 Events dated before the repo's creation are dropped. They belong to an older, deleted repo that
 used the same name.
+
+## Analysis
+
+Two notebooks, both committed with their outputs, so they can be read directly on GitHub:
+
+| Notebook | Contents |
+|---|---|
+| [`01_analysis.ipynb`](notebooks/01_analysis.ipynb) | data overview, cleaning decisions, one section per research question, correlation overview, conclusions and limitations |
+| [`02_model.ipynb`](notebooks/02_model.ipynb) | random forest predicting the star bucket, compared with baselines; cross-validation, held-out test, confusion matrix, permutation importance; trains the README-only model used by the dashboard |
+
+```bash
+jupyter lab notebooks/      # explore interactively
+jupyter nbconvert --to notebook --execute --inplace notebooks/01_analysis.ipynb   # re-run end to end
+```
+
+The analysis takes care to:
+
+- **Not treat the balanced sample as GitHub.** Population-level numbers use census weights or the
+  census itself, and other comparisons are made within a star bucket.
+- **Use rank-based statistics with bootstrap confidence intervals**, because stars, README length
+  and badges have extremely long tails.
+- **Avoid survivorship traps in growth analysis**, by comparing launch cohorts over equal
+  observation windows.
+- **Keep leaky features out of the model.** Forks, watchers, issues and star-derived fields are
+  excluded.
+
+Shared helpers (survey weights, bootstrap Spearman, partial correlation, chart style) live in
+`wgs/analysis.py`. Charts use matplotlib so that they render on GitHub. The palettes were checked
+for colour-blind safety: an ordinal blue ramp for the ordered star buckets and a fixed-order
+categorical palette elsewhere.
 
 ## Tests
 
