@@ -8,3 +8,10 @@ tqdm>=4.66
 # Testing
 pytest>=8.0
 responses>=0.25
+
+# Analysis notebooks
+matplotlib>=3.8
+ipykernel>=6.29
+nbformat>=5.9
+nbconvert>=7.16
+jupyterlab>=4.0
