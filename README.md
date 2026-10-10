@@ -73,6 +73,22 @@ python -m wgs.collector star-history     # only the GH Archive step
 python -m wgs.collector status           # progress and remaining API quota
 ```
 
+### Collection run
+
+Snapshot taken on **8 October 2026**.
+
+| | |
+|---|---|
+| Repositories | **4,000**: 1,000 per star bucket, 2012–2025, 13 language groups |
+| Strata | 728, of which 46 had fewer repos than their quota (mostly 10k+ repos created in recent years); their unused quota was moved to other strata in the same bucket |
+| Repo details | 4,000 / 4,000 |
+| README | 3,947 found, 53 repos have none |
+| Commit activity (52 weeks) | 3,991 ok, 4 empty repos, 5 unavailable (GitHub could not compute statistics) |
+| Star history (GH Archive) | 3,000 repos with 100+ stars, 3.1M daily rows. 16 repos have no archived events |
+| Archive coverage | median 0.99 / 0.91 / 0.88 for the 100–1k / 1k–10k / 10k+ buckets. 82% of repos have coverage ≥ 0.5 |
+| API usage | about 1,900 search requests and 14,900 core requests |
+| Active run time | about 5 hours. The run was suspended twice by the laptop going to sleep and resumed both times without refetching anything |
+
 The pipeline is **resumable**. Every result is committed to SQLite immediately, and search pages
 are cached. If the run stops (Ctrl+C, a crash, a closed laptop), running the same command again
 continues where it left off without repeating requests. Rate limits are handled automatically:
