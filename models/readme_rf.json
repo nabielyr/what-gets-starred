@@ -1,0 +1,59 @@
+{
+  "description": "Random forest predicting the star bucket from README features only.",
+  "features": [
+    "readme_words",
+    "readme_headings",
+    "readme_max_depth",
+    "readme_images",
+    "readme_gifs",
+    "readme_badges",
+    "readme_decorations",
+    "readme_links",
+    "readme_code_blocks",
+    "readme_tables",
+    "has_install",
+    "has_usage",
+    "has_demo_section",
+    "has_contributing",
+    "has_license_section",
+    "has_demo_link"
+  ],
+  "classes": [
+    "10-100",
+    "100-1k",
+    "10k+",
+    "1k-10k"
+  ],
+  "class_labels": {
+    "10-100": "10\u201399",
+    "100-1k": "100\u2013999",
+    "1k-10k": "1k\u20139.9k",
+    "10k+": "10k+"
+  },
+  "metrics_on_held_out_test": {
+    "test_macro_f1": 0.458,
+    "test_accuracy": 0.463
+  },
+  "permutation_importance": {
+    "readme_links": 0.12861,
+    "readme_code_blocks": 0.02417,
+    "readme_images": 0.02228,
+    "readme_words": 0.01874,
+    "has_usage": 0.0157,
+    "has_contributing": 0.00731,
+    "readme_decorations": 0.00712,
+    "readme_headings": 0.00677,
+    "readme_max_depth": 0.00373,
+    "has_demo_section": 0.00316,
+    "readme_tables": 0.00168,
+    "readme_badges": 7e-05,
+    "readme_gifs": 0.0,
+    "has_install": 0.0,
+    "has_license_section": 0.0,
+    "has_demo_link": 0.0
+  },
+  "trained_on": 4000,
+  "snapshot": "2026-10-08",
+  "sklearn_version": "1.9.1",
+  "random_state": 42
+}
