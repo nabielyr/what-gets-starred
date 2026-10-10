@@ -11,7 +11,8 @@ activity, licence and topics.
 ```
 wgs/                 shared Python package
   config.py          loads config.yaml and the token from .env
-  collector/         GitHub API client, SQLite storage, sampling, enrichment, CLI
+  collector/         GitHub API client, SQLite storage, sampling, enrichment, GH Archive, CLI
+  features/          README parser, metadata and growth features, build pipeline
 tests/               pytest suite (API calls are mocked)
 config.yaml          sampling design and pipeline settings
 data/raw/            SQLite database and logs (not committed)
@@ -95,6 +96,59 @@ continues where it left off without repeating requests. Rate limits are handled 
 the client tracks the core and search quotas separately, sleeps until the reset time when a quota
 runs low, honours `Retry-After` on secondary limits, and retries server errors with exponential
 backoff.
+
+## Feature engineering
+
+```bash
+python -m wgs.features.build    # data/raw/github.db -> data/processed/ (about 30 seconds)
+```
+
+This writes the analysis-ready tables used by the notebooks and the dashboard. README text itself
+is never published, only features derived from it.
+
+| File | Contents |
+|---|---|
+| `repos.parquet` | one row per repo (4,000): metadata, activity, README and growth features |
+| `repo_topics.parquet` | one row per (repo, topic) pair |
+| `star_monthly.parquet` | cumulative stars per month for repos with a reliable star history |
+| `population.parquet` | census: number of GitHub repos per star bucket × year × language group |
+| `readme_benchmarks.json` | README feature percentiles per star bucket, for the README checker |
+| `build_report.json` | validation summary (row counts, nulls, sanity checks) |
+
+**README features** (parsed with `markdown-it-py`; reStructuredText and plain text use simpler heuristics):
+
+- **Length:** word count, excluding code, URLs and markup.
+- **Structure:** number of headings, deepest heading level, code blocks, tables and links.
+- **Images**, split into three kinds:
+  - *content images* (screenshots, diagrams, GIFs), with GIFs also counted separately;
+  - *badges* (shields.io and similar);
+  - *decorations* (contributor avatars, sponsor logos, icons, star-history widgets), so a wall of
+    sponsor avatars does not look like a well-illustrated README.
+- **Sections:** whether there are install, usage, demo/screenshots, contributing and licence
+  sections (detected from heading keywords), and whether the README links to a live demo or video.
+
+**Metadata features:**
+
+- **Age and activity:** repo age, days since the last push, stars per day, commits in the last
+  52 weeks, active weeks, and weeks since the last commit.
+- **Topics and licence:** number of topics and a grouped licence.
+- **Repo type:** a flag for curated "awesome" lists and other link collections, which behave very
+  differently from software projects.
+- **Inactive:** a repo is *inactive* when it is archived, has not been pushed to in 365 days, or
+  had no commits in the last 52 weeks.
+
+**Growth features** (from GH Archive):
+
+- **Coverage** (archive events ÷ stars). A history is *reliable* when coverage is between 0.5
+  and 1.5.
+- **Date of the first star**, as a proxy for when the repo went public.
+- **Days to reach 100, 1,000 and 10,000 stars**, counted both from creation and from the first
+  star. Coverage is corrected for by dating star N at the point where cumulative events reached
+  N × coverage.
+- **Star events in the last 365 days.**
+
+Events dated before the repo's creation are dropped. They belong to an older, deleted repo that
+used the same name.
 
 ## Tests
 
