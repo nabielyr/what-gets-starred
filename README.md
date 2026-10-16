@@ -183,6 +183,31 @@ Shared helpers (survey weights, bootstrap Spearman, partial correlation, chart s
 for colour-blind safety: an ordinal blue ramp for the ordered star buckets and a fixed-order
 categorical palette elsewhere.
 
+## Dashboard
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+An interactive Streamlit app that reads only the processed data in `data/processed/` and the model in
+`models/`. It never calls the GitHub API, so it runs anywhere for free.
+
+| Page | What it shows |
+|---|---|
+| Overview | key numbers (they follow the filters) and the headline findings |
+| Languages | census-based language trends with selectable highlights, and hit rates |
+| README | README features by star range, section prevalence, overall vs within-range correlations |
+| Activity | inactive share (sample and population-weighted), commits, and inactivity by creation year |
+| Growth | time to 100/1k/10k stars, fair launch-cohort comparison, and a star-history explorer for any repo |
+| Licences & topics | licence mix, most common topics, rising topics |
+| README checker | paste or upload a README: 0–100 score, per-check advice, and which star range's READMEs it resembles |
+| Methodology | data sources, sampling, features and limitations |
+
+Sidebar filters (star range, language, creation year) apply to every page. The app lives in `app/`:
+`streamlit_app.py` holds the navigation and filters, `views/` has one module per page, and
+`components/` has the cached data loading and the Plotly theme. The checker's logic is in
+`wgs/scoring/readme_score.py`, so it is unit-tested separately from the UI.
+
 ## Tests
 
 ```bash
