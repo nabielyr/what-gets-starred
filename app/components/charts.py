@@ -12,17 +12,17 @@ FONT = "Inter, -apple-system, Segoe UI, Roboto, sans-serif"
 TEMPLATE = go.layout.Template(
     layout=dict(
         font=dict(family=FONT, color=A.INK["primary"], size=13),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor=A.SURFACE,
+        plot_bgcolor=A.SURFACE,
         colorway=A.CATEGORICAL,
         title=dict(x=0, xanchor="left", font=dict(size=16, color=A.INK["primary"])),
-        margin=dict(l=8, r=16, t=56, b=8),
+        margin=dict(l=16, r=24, t=64, b=16),
         hoverlabel=dict(bgcolor="white", bordercolor=A.INK["grid"], font=dict(family=FONT, size=12, color=A.INK["primary"])),
         legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0, title_text="",
                     font=dict(color=A.INK["secondary"])),
-        xaxis=dict(gridcolor=A.INK["grid"], linecolor=A.INK["grid"], zeroline=False, ticks="",
+        xaxis=dict(gridcolor=A.INK["grid"], linecolor=A.INK["grid"], zeroline=False, ticks="", automargin=True,
                    tickfont=dict(color=A.INK["secondary"]), title_font=dict(color=A.INK["secondary"], size=12)),
-        yaxis=dict(gridcolor=A.INK["grid"], linecolor=A.INK["grid"], zeroline=False, ticks="",
+        yaxis=dict(gridcolor=A.INK["grid"], linecolor=A.INK["grid"], zeroline=False, ticks="", automargin=True,
                    tickfont=dict(color=A.INK["secondary"]), title_font=dict(color=A.INK["secondary"], size=12)),
         bargap=0.35,
     )
@@ -40,8 +40,10 @@ LANG_STYLE = {
 }
 
 
-def show(fig: go.Figure, height: int = 400, **layout) -> None:
-    fig.update_layout(template=TEMPLATE, height=height, **layout)
+def show(fig: go.Figure, height: int = 400, legend_below: bool = False, **layout) -> None:
+    fig.update_layout(template=TEMPLATE, height=height, plot_bgcolor=A.SURFACE, paper_bgcolor=A.SURFACE, **layout)
+    if legend_below:  # narrow charts: keep the legend clear of the title
+        fig.update_layout(legend=dict(orientation="h", yanchor="top", y=-0.18, xanchor="left", x=0))
     st.plotly_chart(fig, theme=None, config={"displaylogo": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"]})
 
 

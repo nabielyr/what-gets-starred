@@ -47,7 +47,7 @@ for reason in REASONS:
         textfont=dict(color="white" if reason != "no commits in a year" else A.INK["primary"]),
         hovertemplate=f"%{{y}} stars<br>{reason}: %{{x:.1%}}<extra></extra>",
     ))
-show(fig, height=300, barmode="stack", title="Activity status by star range (sample)",
+show(fig, height=300, barmode="stack", title="Activity status by star range (sample)", legend_traceorder="normal",
      xaxis_tickformat=".0%", xaxis_range=[0, 1], yaxis=dict(autorange="reversed", title="stars"))
 
 left, right = st.columns(2)
@@ -74,8 +74,8 @@ with right:
             line=dict(color=BUCKET_COLORS[label], width=2), marker=dict(size=7),
             hovertemplate=f"{label} stars, created %{{x}}<br>%{{y:.0%}} inactive<extra></extra>",
         ))
-    show(fig, height=330, title="Inactive share by creation year", yaxis_tickformat=".0%",
-         yaxis_range=[0, 1], hovermode="x unified")
+    show(fig, height=360, title="Inactive share by creation year", yaxis_tickformat=".0%",
+         yaxis_range=[0, 1], hovermode="x unified", legend_below=True)
 
 st.info(
     "Stars accumulate and never expire, so finished tools, tutorials and abandoned experiments keep their "

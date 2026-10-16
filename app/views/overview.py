@@ -25,7 +25,7 @@ popular = repos[repos["bucket"].isin(["1k-10k", "10k+"])]
 cols = st.columns(5)
 cols[0].metric("Repos in view", f"{len(repos):,}", help="Sampled repos matching the filters.", border=True)
 cols[1].metric(
-    "GitHub repos represented", f"{repos['weight'].sum() / 1e6:.2f}M" if repos["weight"].sum() > 1e6 else f"{repos['weight'].sum():,.0f}",
+    "GitHub repos (est.)", f"{repos['weight'].sum() / 1e6:.2f}M" if repos["weight"].sum() > 1e6 else f"{repos['weight'].sum():,.0f}",
     help="Population size behind the sample: each repo is weighted by how many GitHub repos with 10+ stars "
     "its stratum (star range × creation year × language) contains.", border=True,
 )
@@ -37,14 +37,15 @@ cols[2].metric(
 )
 reliable = repos[repos["history_reliable"] & (repos["stars"] >= 1000)]
 cols[3].metric(
-    "Median time to 1k stars",
-    f"{reliable['days_to_1000_from_first_star'].median() / 30.44:.0f} months" if len(reliable) else "–",
-    help="From the first star, for repos that reached 1,000 stars and have a reliable GH Archive history.",
+    "Months to 1k stars",
+    f"{reliable['days_to_1000_from_first_star'].median() / 30.44:.0f}" if len(reliable) else "–",
+    help="Median months from the first star, for repos that reached 1,000 stars and have a reliable "
+    "GH Archive history.",
     border=True,
 )
 cols[4].metric(
-    "Median README", f"{repos['readme_words'].median():,.0f} words",
-    help="README length, excluding code, URLs and markup.", border=True,
+    "README words", f"{repos['readme_words'].median():,.0f}",
+    help="Median README length in words, excluding code, URLs and markup.", border=True,
 )
 
 st.subheader("Key findings")
@@ -90,7 +91,7 @@ with left:
         text=[pct(v) for v in share.values], textposition="outside", cliponaxis=False,
         hovertemplate="%{x} stars<br>%{y:.0%} inactive<extra></extra>",
     ))
-    show(fig, height=330, title="Inactive repos by star range", yaxis_tickformat=".0%",
+    show(fig, height=330, title="Inactive repos by star range (population-weighted)", yaxis_tickformat=".0%",
          yaxis_range=[0, 1], xaxis_title="stars", showlegend=False)
 with right:
     med = repos.groupby("bucket", observed=True)["readme_words"].median()

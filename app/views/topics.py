@@ -34,7 +34,7 @@ for family in ORDER:
         textfont=dict(color="white" if family in ("MIT", "GPL family") else A.INK["primary"]),
         hovertemplate=f"%{{y}} stars<br>{family}: %{{x:.1%}}<extra></extra>",
     ))
-show(fig, height=320, barmode="stack", title="Licence by star range", xaxis_tickformat=".0%",
+show(fig, height=320, barmode="stack", title="Licence by star range", xaxis_tickformat=".0%", legend_traceorder="normal",
      xaxis_range=[0, 1], yaxis=dict(autorange="reversed", title="stars"))
 st.caption("Popular repos almost always declare a licence. 'Custom / unrecognised' is a licence file GitHub "
            "could not match to a standard licence, often a dual or source-available licence.")
@@ -89,5 +89,5 @@ with right:
                 marker=dict(size=12, color=A.CATEGORICAL[1], line=dict(color="white", width=2)),
                 hovertemplate="%{y}<br>2023-2025: %{x:.1%}<extra></extra>",
             ))
-            show(fig, height=max(320, 24 * len(rising) + 80), title="Rising topics (share of repos)",
-                 xaxis_tickformat=".0%", yaxis=dict(gridcolor="rgba(0,0,0,0)"))
+            show(fig, height=max(340, 24 * len(rising) + 110), title="Rising topics (share of repos)",
+                 xaxis_tickformat=".0%", yaxis=dict(gridcolor="rgba(0,0,0,0)"), legend_below=True)

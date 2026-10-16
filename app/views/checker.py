@@ -71,9 +71,9 @@ def load_upload() -> None:
 st.file_uploader("Upload README.md", type=["md", "markdown", "txt"], key="readme_upload", on_change=load_upload)
 
 st.text_area("README content", key="readme_text", height=280, placeholder="# My project\n\nWhat it does...")
-b1, b2, _ = st.columns([1, 1, 5])
-b1.button("Try an example", on_click=use_example, icon=":material/auto_awesome:", width="stretch")
-b2.button("Clear", on_click=clear, icon=":material/close:", width="stretch")
+with st.container(horizontal=True):
+    st.button("Try an example", on_click=use_example, icon=":material/auto_awesome:")
+    st.button("Clear", on_click=clear, icon=":material/close:")
 
 text = st.session_state["readme_text"]
 if not text.strip():
