@@ -1,5 +1,11 @@
 # What Makes a GitHub Repo Popular?
 
+[![Open the dashboard](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://what-gets-starred.streamlit.app/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
+
+**Live dashboard: [what-gets-starred.streamlit.app](https://what-gets-starred.streamlit.app/)**
+
 An end-to-end data science project. **4,000 GitHub repositories** were sampled through the GitHub REST
 API and analysed to see which factors go together with stars: language, README quality, commit
 activity, licence and topics. Star histories come from GH Archive. The results are presented in
@@ -9,7 +15,7 @@ notebooks and in an interactive Streamlit dashboard that includes a **README che
 
 **Contents:** [Key findings](#key-findings) · [Dashboard](#dashboard) · [How it works](#how-it-works) ·
 [Data](#data) · [Analysis](#analysis) · [Limitations](#limitations) · [Run it yourself](#run-it-yourself) ·
-[Deploy](#deploy-to-streamlit-community-cloud)
+[Deploy](#deploy-to-streamlit-community-cloud) · [License](#license)
 
 ## Key findings
 
@@ -56,7 +62,7 @@ with 10+ stars created in 2012–2025.
 
 ## Dashboard
 
-An interactive Streamlit app with eight pages and shared filters for star range, language and
+**[Open the live dashboard →](https://what-gets-starred.streamlit.app/)** An interactive Streamlit app with eight pages and shared filters for star range, language and
 creation year. It reads only the processed data committed in this repo and never calls the GitHub
 API.
 
@@ -260,8 +266,10 @@ Sampling targets, years, languages and thresholds are set in [`config.yaml`](con
 
 ## Deploy to Streamlit Community Cloud
 
-The dashboard only needs `requirements.txt` and the committed data, and it has been tested in a clean
-environment with exactly those.
+The live version runs at [what-gets-starred.streamlit.app](https://what-gets-starred.streamlit.app/).
+To deploy your own copy (for example, a fork with fresh data), note that the dashboard only needs
+`requirements.txt` and the committed data. It has been tested in a clean environment with exactly
+those.
 
 1. Sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub.
 2. Click **Create app**, choose this repository, branch `main`, and set the main file path to
@@ -296,3 +304,8 @@ config.yaml              sampling design and pipeline settings
   statistics.
 - [GH Archive](https://www.gharchive.org/), queried via the
   [ClickHouse public playground](https://play.clickhouse.com/): star events.
+
+## License
+
+The code is released under the [MIT License](LICENSE). The repository metadata and derived features
+come from public GitHub data. README texts are not redistributed.
