@@ -90,8 +90,14 @@ with left:
               help="Weighted share of the checks passed, relative to the READMEs of 1,000+ star repos.")
     st.progress(min(report.score / 100, 1.0), text=verdict)
     f = report.features
-    st.caption(f"{f['readme_words']:,} words · {f['readme_headings']} headings · {f['readme_links']} links · "
-               f"{f['readme_images']} images · {f['readme_badges']} badges · {f['readme_code_blocks']} code blocks")
+
+    def n(count: int, noun: str) -> str:
+        return f"{count:,} {noun}{'' if count == 1 else 's'}"
+
+    st.caption(" · ".join([
+        n(f["readme_words"], "word"), n(f["readme_headings"], "heading"), n(f["readme_links"], "link"),
+        n(f["readme_images"], "image"), n(f["readme_badges"], "badge"), n(f["readme_code_blocks"], "code block"),
+    ]))
 with right:
     probs = {A.BUCKET_LABELS[b]: report.resemblance[b] for b in A.BUCKET_ORDER}
     fig = go.Figure(go.Bar(
