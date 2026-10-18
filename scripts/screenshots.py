@@ -25,12 +25,17 @@ PAGES = {
 }
 
 
-def wait_for_app(page) -> None:
+def wait_for_app(page, expect_charts: bool = True) -> None:
     page.wait_for_selector("[data-testid='stAppViewContainer']", timeout=60_000)
+    page.wait_for_selector("h1", timeout=180_000)  # the page body has rendered
+    # The first visit after a restart loads the data cache; wait until no spinner is left.
     page.wait_for_function(
-        "() => !document.querySelector('[data-testid=\"stStatusWidget\"]')", timeout=120_000
+        "() => !document.querySelector('[data-testid=\"stStatusWidget\"], [data-testid=\"stSpinner\"]')",
+        timeout=180_000,
     )
-    page.wait_for_timeout(6000)  # let cached data load and Plotly finish drawing
+    if expect_charts:
+        page.wait_for_selector(".js-plotly-plot .main-svg", timeout=180_000)
+    page.wait_for_timeout(3000)  # let Plotly finish its transitions
 
 
 def main() -> None:
@@ -48,10 +53,15 @@ def main() -> None:
         page = browser.new_page(viewport={"width": args.width, "height": 900}, device_scale_factor=1)
         for name, path in PAGES.items():
             page.goto(f"{args.base}/{path}")
-            wait_for_app(page)
+            wait_for_app(page, expect_charts=name not in ("checker", "methodology"))
             if name == "checker":
                 page.get_by_role("button", name="Try an example").click()
                 wait_for_app(page)
+                # Show the result (score, resemblance and checks) rather than the input box.
+                page.get_by_text("README score").first.evaluate("e => e.scrollIntoView({block: 'start'})")
+                page.mouse.move(800, 450)
+                page.mouse.wheel(0, -150)
+                page.wait_for_timeout(1500)
             page.screenshot(path=str(out / f"{name}.png"), full_page=args.full_page)
             print("saved", out / f"{name}.png")
         browser.close()
