@@ -1,196 +1,70 @@
 # What Makes a GitHub Repo Popular?
 
-A data science project that samples thousands of GitHub repositories through the GitHub REST API and
-explores which factors are associated with the number of stars: language, README quality, commit
-activity, licence and topics.
+An end-to-end data science project. **4,000 GitHub repositories** were sampled through the GitHub REST
+API and analysed to see which factors go together with stars: language, README quality, commit
+activity, licence and topics. Star histories come from GH Archive. The results are presented in
+notebooks and in an interactive Streamlit dashboard that includes a **README checker**.
 
-> 🚧 Work in progress. Data collection is being built first. Analysis, dashboard and findings come later.
+![Dashboard overview](docs/screenshots/overview.png)
 
-## Project structure
+**Contents:** [Key findings](#key-findings) · [Dashboard](#dashboard) · [How it works](#how-it-works) ·
+[Data](#data) · [Analysis](#analysis) · [Limitations](#limitations) · [Run it yourself](#run-it-yourself) ·
+[Deploy](#deploy-to-streamlit-community-cloud)
 
-```
-wgs/                 shared Python package
-  config.py          loads config.yaml and the token from .env
-  collector/         GitHub API client, SQLite storage, sampling, enrichment, GH Archive, CLI
-  features/          README parser, metadata and growth features, build pipeline
-  analysis.py        weights, statistics and chart style shared by the notebooks
-notebooks/           01_analysis.ipynb (research questions), 02_model.ipynb (popularity model)
-models/              README-only random forest used by the dashboard
-tests/               pytest suite (API calls are mocked)
-config.yaml          sampling design and pipeline settings
-data/raw/            SQLite database and logs (not committed)
-data/processed/      cleaned datasets used by the notebooks and dashboard
-```
+## Key findings
 
-## Setup
+Snapshot of 8 October 2026. Population figures are weighted by the census of 2.6 million GitHub repos
+with 10+ stars created in 2012–2025.
 
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
-pip install -r requirements-dev.txt
-cp .env.example .env   # then paste your GitHub token into .env
-```
+1. **Python and TypeScript took over.** Among repos that went on to collect 1,000+ stars, Python's
+   share grew from about 13% of those created in 2012 to 34% of those created in 2025, and
+   TypeScript's from 3% to 21%. JavaScript fell from 21% to 6%, and Java, PHP and Ruby to 2% or less.
+   Rust, Go and TypeScript have the best **hit rate**: a repo with 10+ stars in one of these
+   languages is about twice as likely as average to grow past 1,000.
 
-A [personal access token](https://github.com/settings/tokens) without any scopes is enough, since only
-public data is read. The token raises the API limit from 60 to 5,000 requests per hour.
+   ![Language trends](docs/images/language_trend.png)
 
-## Data collection
+2. **A good README is hygiene, not a growth hack.** Popular repos have longer READMEs with more
+   links, badges, images and contributing sections. Overall, links correlate with stars at
+   ρ ≈ 0.6. Among repos of *similar* popularity, though, these features barely differ (ρ ≤ 0.15),
+   and GIFs and demo sections show no relationship at all. Rich READMEs look more like something
+   projects grow into than a cause of stars.
 
-The sample is **stratified** so that unpopular repos are represented as well as popular ones:
+   ![README correlations](docs/images/readme_correlation.png)
 
-| Dimension | Values |
-|---|---|
-| Star bucket | 10–99, 100–999, 1k–9.9k, 10k+ |
-| Creation year | 2012–2025 |
-| Language group | Python, JavaScript, TypeScript, Java, Go, Rust, C++, C, C#, PHP, Ruby, Swift, Other |
+3. **Stars outlive maintenance.** The median 10k+ repo made about 100 commits in the past year, yet
+   an estimated **48% of all repos with 1,000+ stars** (and 27% of those with 10,000+) are
+   inactive: archived, unpushed for a year, or without commits in 52 weeks.
 
-The Search API returns at most 1,000 results per query and orders them by "best match", so each
-stratum is sampled from randomly chosen date windows and result pages. The `total_count` of every
-stratum is also stored as a **census**, so population-level trends (for example, language
-popularity by year) do not depend on the balanced sample.
+4. **Popularity is usually earned slowly.** Repos that reached each milestone typically needed about
+   3 months to reach 100 stars, a year to 1,000 and 3 years to 10,000, counted from the first star.
+   Viral launches exist (the fastest tenth reached 1,000 in 5 days), but long-lived 10k+ repos had
+   collected under half of today's stars four years after launch. Compared over equal observation
+   windows, recent launches do reach 1,000 stars faster: 60% within a year for 2019–2021 launches,
+   against 22% for 2012 launches.
 
-For each sampled repo the collector stores the repository metadata, the README text and the
-number of commits per week over the last 52 weeks.
+   ![Growth curves](docs/images/growth_curves.png)
 
-### Star history from GH Archive
+5. **Licences, topics and AI.** Popular repos nearly always declare a licence (8% of 10k+ repos have
+   none, against 36% of 10–99 star repos), mostly MIT or Apache-2.0, and use topics. The fastest-rising
+   topics are all about AI: `llm`, `mcp`, `ai-agents`, `agentic-ai`, `rag`, `claude-code`.
 
-GitHub [restricted the stargazer listing endpoints](https://github.blog/changelog/2026-06-30-upcoming-access-restrictions-to-public-api-endpoints-and-ui-views/)
-to repository admins and collaborators in July 2026, so the date of each star can no longer be read
-from the API. Instead, daily star counts come from [GH Archive](https://www.gharchive.org/), a
-public record of GitHub events since 2011 in which every star is a `WatchEvent`. The archive is
-queried through ClickHouse's free [public playground](https://play.clickhouse.com/), so it needs no
-download and no GitHub quota. This is done for every sampled repo with 100+ stars.
-
-The archive is not a perfect mirror of GitHub:
-- it misses some events, so a repo usually shows somewhat fewer star events than its real star count;
-- unstars are not recorded, so the count can also be slightly higher;
-- events are filed under the repo name at the time, so history from before a rename or transfer is
-  lost. The collector queries both the name seen at discovery and the current name.
-
-Each repo therefore gets a **coverage ratio** (archive events ÷ current stars), and repos with low
-coverage are excluded from the time-to-milestone analysis.
-
-```bash
-python -m wgs.collector run --limit 50   # quick test run -> data/raw/sample.db
-python -m wgs.collector run              # full run (about 4,000 repos, several hours)
-python -m wgs.collector star-history     # only the GH Archive step
-python -m wgs.collector status           # progress and remaining API quota
-```
-
-### Collection run
-
-Snapshot taken on **8 October 2026**.
-
-| | |
-|---|---|
-| Repositories | **4,000**: 1,000 per star bucket, 2012–2025, 13 language groups |
-| Strata | 728, of which 46 had fewer repos than their quota (mostly 10k+ repos created in recent years); their unused quota was moved to other strata in the same bucket |
-| Repo details | 4,000 / 4,000 |
-| README | 3,947 found, 53 repos have none |
-| Commit activity (52 weeks) | 3,991 ok, 4 empty repos, 5 unavailable (GitHub could not compute statistics) |
-| Star history (GH Archive) | 3,000 repos with 100+ stars, 3.1M daily rows. 16 repos have no archived events |
-| Archive coverage | median 0.99 / 0.91 / 0.88 for the 100–1k / 1k–10k / 10k+ buckets. 82% of repos have coverage ≥ 0.5 |
-| API usage | about 1,900 search requests and 14,900 core requests |
-| Active run time | about 5 hours. The run was suspended twice by the laptop going to sleep and resumed both times without refetching anything |
-
-The pipeline is **resumable**. Every result is committed to SQLite immediately, and search pages
-are cached. If the run stops (Ctrl+C, a crash, a closed laptop), running the same command again
-continues where it left off without repeating requests. Rate limits are handled automatically:
-the client tracks the core and search quotas separately, sleeps until the reset time when a quota
-runs low, honours `Retry-After` on secondary limits, and retries server errors with exponential
-backoff.
-
-## Feature engineering
-
-```bash
-python -m wgs.features.build    # data/raw/github.db -> data/processed/ (about 30 seconds)
-```
-
-This writes the analysis-ready tables used by the notebooks and the dashboard. README text itself
-is never published, only features derived from it.
-
-| File | Contents |
-|---|---|
-| `repos.parquet` | one row per repo (4,000): metadata, activity, README and growth features |
-| `repo_topics.parquet` | one row per (repo, topic) pair |
-| `star_monthly.parquet` | cumulative stars per month for repos with a reliable star history |
-| `population.parquet` | census: number of GitHub repos per star bucket × year × language group |
-| `readme_benchmarks.json` | README feature percentiles per star bucket, for the README checker |
-| `build_report.json` | validation summary (row counts, nulls, sanity checks) |
-
-**README features** (parsed with `markdown-it-py`; reStructuredText and plain text use simpler heuristics):
-
-- **Length:** word count, excluding code, URLs and markup.
-- **Structure:** number of headings, deepest heading level, code blocks, tables and links.
-- **Images**, split into three kinds:
-  - *content images* (screenshots, diagrams, GIFs), with GIFs also counted separately;
-  - *badges* (shields.io and similar);
-  - *decorations* (contributor avatars, sponsor logos, icons, star-history widgets), so a wall of
-    sponsor avatars does not look like a well-illustrated README.
-- **Sections:** whether there are install, usage, demo/screenshots, contributing and licence
-  sections (detected from heading keywords), and whether the README links to a live demo or video.
-
-**Metadata features:**
-
-- **Age and activity:** repo age, days since the last push, stars per day, commits in the last
-  52 weeks, active weeks, and weeks since the last commit.
-- **Topics and licence:** number of topics and a grouped licence.
-- **Repo type:** a flag for curated "awesome" lists and other link collections, which behave very
-  differently from software projects.
-- **Inactive:** a repo is *inactive* when it is archived, has not been pushed to in 365 days, or
-  had no commits in the last 52 weeks.
-
-**Growth features** (from GH Archive):
-
-- **Coverage** (archive events ÷ stars). A history is *reliable* when coverage is between 0.5
-  and 1.5.
-- **Date of the first star**, as a proxy for when the repo went public.
-- **Days to reach 100, 1,000 and 10,000 stars**, counted both from creation and from the first
-  star. Coverage is corrected for by dating star N at the point where cumulative events reached
-  N × coverage.
-- **Star events in the last 365 days.**
-
-Events dated before the repo's creation are dropped. They belong to an older, deleted repo that
-used the same name.
-
-## Analysis
-
-Two notebooks, both committed with their outputs, so they can be read directly on GitHub:
-
-| Notebook | Contents |
-|---|---|
-| [`01_analysis.ipynb`](notebooks/01_analysis.ipynb) | data overview, cleaning decisions, one section per research question, correlation overview, conclusions and limitations |
-| [`02_model.ipynb`](notebooks/02_model.ipynb) | random forest predicting the star bucket, compared with baselines; cross-validation, held-out test, confusion matrix, permutation importance; trains the README-only model used by the dashboard |
-
-```bash
-jupyter lab notebooks/      # explore interactively
-jupyter nbconvert --to notebook --execute --inplace notebooks/01_analysis.ipynb   # re-run end to end
-```
-
-The analysis takes care to:
-
-- **Not treat the balanced sample as GitHub.** Population-level numbers use census weights or the
-  census itself, and other comparisons are made within a star bucket.
-- **Use rank-based statistics with bootstrap confidence intervals**, because stars, README length
-  and badges have extremely long tails.
-- **Avoid survivorship traps in growth analysis**, by comparing launch cohorts over equal
-  observation windows.
-- **Keep leaky features out of the model.** Forks, watchers, issues and star-derived fields are
-  excluded.
-
-Shared helpers (survey weights, bootstrap Spearman, partial correlation, chart style) live in
-`wgs/analysis.py`. Charts use matplotlib so that they render on GitHub. The palettes were checked
-for colour-blind safety: an ordinal blue ramp for the ordered star buckets and a fixed-order
-categorical palette elsewhere.
+6. **Measurable features explain only part of it.** A random forest using README, metadata and
+   activity features places a repo in the right star range about half the time (macro-F1 0.52,
+   against 0.25 for guessing). Most of what makes a project popular is not visible in these numbers:
+   usefulness, timing, audience and luck.
 
 ## Dashboard
 
-```bash
-streamlit run app/streamlit_app.py
-```
+An interactive Streamlit app with eight pages and shared filters for star range, language and
+creation year. It reads only the processed data committed in this repo and never calls the GitHub
+API.
 
-An interactive Streamlit app that reads only the processed data in `data/processed/` and the model in
-`models/`. It never calls the GitHub API, so it runs anywhere for free.
+| README checker | Growth |
+|---|---|
+| ![README checker](docs/screenshots/checker.png) | ![Growth](docs/screenshots/growth.png) |
+| **Languages** | **README** |
+| ![Languages](docs/screenshots/languages.png) | ![README](docs/screenshots/readme.png) |
 
 | Page | What it shows |
 |---|---|
@@ -198,18 +72,227 @@ An interactive Streamlit app that reads only the processed data in `data/process
 | Languages | census-based language trends with selectable highlights, and hit rates |
 | README | README features by star range, section prevalence, overall vs within-range correlations |
 | Activity | inactive share (sample and population-weighted), commits, and inactivity by creation year |
-| Growth | time to 100/1k/10k stars, fair launch-cohort comparison, and a star-history explorer for any repo |
+| Growth | time to 100/1k/10k stars, a fair launch-cohort comparison, and a star-history explorer for 2,468 repos |
 | Licences & topics | licence mix, most common topics, rising topics |
-| README checker | paste or upload a README: 0–100 score, per-check advice, and which star range's READMEs it resembles |
+| **README checker** | paste or upload a README: a 0–100 score against 1k+ star repos, per-check advice, and which star range's READMEs it resembles |
 | Methodology | data sources, sampling, features and limitations |
 
-Sidebar filters (star range, language, creation year) apply to every page. The app lives in `app/`:
-`streamlit_app.py` holds the navigation and filters, `views/` has one module per page, and
-`components/` has the cached data loading and the Plotly theme. The checker's logic is in
-`wgs/scoring/readme_score.py`, so it is unit-tested separately from the UI.
+## How it works
 
-## Tests
+```
+GitHub REST API ──► collector ──► SQLite ──► feature build ──► data/processed/*.parquet ──┬─► notebooks
+GH Archive (ClickHouse) ──┘   (resumable,      (README parser,                           └─► Streamlit app
+                              rate-limited)     growth, metadata)
+```
+
+| Step | Command | Code |
+|---|---|---|
+| 1. Collect | `python -m wgs.collector run` | [`wgs/collector/`](wgs/collector) |
+| 2. Build features | `python -m wgs.features.build` | [`wgs/features/`](wgs/features) |
+| 3. Analyse | notebooks | [`notebooks/`](notebooks) |
+| 4. Explore | `streamlit run app/streamlit_app.py` | [`app/`](app) |
+
+Engineering highlights:
+
+- **Rate-limit aware client.** It tracks the core and search quotas separately, sleeps until the
+  reset time, honours `Retry-After` and backs off exponentially on errors. Waiting for a quota never
+  counts as a failed attempt.
+- **Resumable collection.** Every result is committed to SQLite immediately and search pages are
+  cached, so a stopped run continues where it left off without repeating requests. This was tested
+  by killing the process mid-run. The real run was suspended twice by the laptop sleeping and
+  resumed without refetching anything.
+- **Built around API limits.** It works around the Search API's 1,000-result cap and "best match"
+  ordering, retries the statistics endpoint's `202 Accepted` responses, and switched to GH Archive
+  when GitHub restricted stargazer data in July 2026.
+- **Tests.** 83 pytest tests cover the client (mocked HTTP), storage, sampling, README parsing,
+  features, statistics, scoring, and every dashboard page under several filter states.
+
+## Data
+
+### Sampling
+
+The sample is **stratified**, so unpopular repos are represented as well as popular ones:
+
+| Dimension | Values |
+|---|---|
+| Star range | 10–99, 100–999, 1k–9.9k, 10k+ (1,000 repos each) |
+| Creation year | 2012–2025 |
+| Language group | Python, JavaScript, TypeScript, Java, Go, Rust, C++, C, C#, PHP, Ruby, Swift, Other |
+
+The Search API returns at most 1,000 results per query and orders them by "best match", so each of
+the 728 strata is sampled from randomly chosen date windows (year → month → day) and result pages.
+The `total_count` of every stratum is stored as a **census**. It gives the size of the population
+behind each sampled repo, which is used for language trends and population-weighted estimates.
+
+For each repo the collector stores the repository metadata, the README text and the commits per
+week over the last 52 weeks.
+
+### Star history from GH Archive
+
+GitHub [restricted the stargazer listing endpoints](https://github.blog/changelog/2026-06-30-upcoming-access-restrictions-to-public-api-endpoints-and-ui-views/)
+to repository admins and collaborators in July 2026, so star dates can no longer be read from the
+API. Instead, daily star counts come from [GH Archive](https://www.gharchive.org/), a public record
+of GitHub events since 2011 in which each star is a `WatchEvent`. The archive is queried through
+ClickHouse's free [public playground](https://play.clickhouse.com/), with no download and no GitHub
+quota needed.
+
+The archive is not a perfect mirror of GitHub:
+
+- It misses some events.
+- It does not record unstars.
+- It loses history from before a rename. The collector queries both the old and the current name to
+  recover some of it.
+
+Each repo therefore gets a **coverage ratio** (archive events ÷ current stars). Only histories with
+coverage between 0.5 and 1.5 are used for growth analysis (2,468 of 2,984), and milestone dates are
+corrected for coverage.
+
+### Collection run
+
+| | |
+|---|---|
+| Repositories | **4,000**: 1,000 per star range |
+| Strata | 728. 46 had fewer repos than their quota (mostly 10k+ repos created recently), and their unused quota moved to other strata in the same range |
+| Repo details / README / commit activity | 4,000 / 3,947 (53 have no README) / 3,991 (5 too large for GitHub's statistics) |
+| Star history | 3,000 repos with 100+ stars, 3.1M daily rows, median coverage 0.93 |
+| API usage | about 1,900 search and 14,900 core requests, about 5 hours of active run time |
+
+### Processed data (`data/processed/`)
+
+| File | Contents |
+|---|---|
+| `repos.parquet` | one row per repo: metadata, activity, README and growth features |
+| `repo_topics.parquet` | one row per (repo, topic) pair |
+| `star_monthly.parquet` | cumulative stars per month for repos with a reliable history |
+| `population.parquet` | census: GitHub repos per star range × year × language group |
+| `readme_benchmarks.json` | README feature percentiles per star range, used by the checker |
+| `build_report.json` | validation summary |
+
+README text is never published. It belongs to each repo's authors, so only features derived from
+it are committed.
+
+**README features** (Markdown parsed with `markdown-it-py`):
+
+- **Length:** word count, excluding code, URLs and markup.
+- **Structure:** headings, deepest heading level, code blocks, tables and links.
+- **Images**, split into three kinds:
+  - *content images*: screenshots, diagrams and GIFs;
+  - *badges*;
+  - *decorations*: avatars, sponsor logos and icons, so a wall of sponsor avatars does not count as
+    screenshots.
+- **Sections:** install, usage, demo, contributing and licence sections, and links to a live demo or
+  video.
+
+**Metadata features:**
+
+- **Age and activity:** repo age, days since the last push, stars per day, and commits and active
+  weeks in the last 52 weeks.
+- **Topics and licence:** number of topics and a grouped licence.
+- **Repo type:** a flag for awesome lists and other link collections.
+- **Inactive:** a repo is inactive when it is archived, has had no push in 365 days, or had no
+  commits in 52 weeks.
+
+## Analysis
+
+| Notebook | Contents |
+|---|---|
+| [`01_analysis.ipynb`](notebooks/01_analysis.ipynb) | data overview, cleaning decisions, one section per research question, correlation overview, conclusions and limitations |
+| [`02_model.ipynb`](notebooks/02_model.ipynb) | random forest predicting the star range vs baselines: cross-validation, held-out test, confusion matrix, permutation importance; trains the README-only model used by the checker |
+
+Both notebooks are committed with their outputs, so they can be read on GitHub. The analysis takes
+care to:
+
+- **Not treat the balanced sample as GitHub.** Population numbers use census weights or the census
+  itself, and other comparisons are made within a star range.
+- **Use rank-based statistics with bootstrap confidence intervals**, because stars, README length and
+  badge counts have extremely long tails.
+- **Avoid survivorship traps.** Launch cohorts are compared over equal observation windows, and
+  growth curves only include repos with the full history.
+- **Keep leaky features out of the model.** Forks, watchers, issues and star-derived fields are
+  excluded.
+
+Charts use colour-blind-checked palettes: an ordinal blue ramp for the ordered star ranges and a
+fixed-order categorical palette elsewhere.
+
+## Limitations
+
+- **Correlation, not causation.** Popularity also *causes* documentation, badges, contributors and
+  commits, so many relationships plausibly run both ways.
+- **Sampling.** Population estimates assume the repos drawn within a stratum represent it. Random
+  date windows and pages make this likely, but the Search API's ranking is undocumented.
+- **Survivorship and snapshot.** Only public repos that still exist and have 10+ stars are included,
+  each measured once. A README is today's README, not the one the stars were earned with.
+- **API limits.** Commit statistics cover only the default branch and the last 52 weeks. `pushed_at`
+  counts pushes to any branch.
+- **Archive gaps.** Star dates are coverage-corrected estimates from GH Archive, not GitHub's own
+  records.
+- **Heuristics.** README section detection, image classification, the list-repo flag and the
+  inactivity rule are rules of thumb that will misclassify some repos.
+
+## Run it yourself
 
 ```bash
-pytest
+python -m venv .venv
+# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
+pip install -r requirements-dev.txt
 ```
+
+The processed data is committed, so the **notebooks and the dashboard work right away**:
+
+```bash
+streamlit run app/streamlit_app.py        # dashboard at http://localhost:8501
+jupyter lab notebooks/                    # notebooks
+pytest                                    # tests
+```
+
+To collect a fresh dataset, copy `.env.example` to `.env` and add a GitHub
+[personal access token](https://github.com/settings/tokens). No scopes are needed for public data.
+Then run:
+
+```bash
+python -m wgs.collector run --limit 50    # quick test (~5 min) -> data/raw/sample.db
+python -m wgs.collector run               # full run, ~5 hours, resumable (Ctrl+C and rerun anytime)
+python -m wgs.collector status            # progress and remaining API quota
+python -m wgs.features.build              # SQLite -> data/processed/
+```
+
+Sampling targets, years, languages and thresholds are set in [`config.yaml`](config.yaml).
+
+## Deploy to Streamlit Community Cloud
+
+The dashboard only needs `requirements.txt` and the committed data, and it has been tested in a clean
+environment with exactly those.
+
+1. Sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub.
+2. Click **Create app**, choose this repository, branch `main`, and set the main file path to
+   `app/streamlit_app.py`.
+3. Under **Advanced settings**, choose **Python 3.12**. The saved model is pinned to scikit-learn
+   1.9.1. No secrets are needed.
+4. Click **Deploy**. The theme comes from `.streamlit/config.toml`.
+
+## Project structure
+
+```
+wgs/                     shared Python package
+  config.py              loads config.yaml and the token from .env
+  collector/             GitHub client, SQLite storage, sampling, enrichment, GH Archive, CLI
+  features/              README parser, metadata and growth features, build pipeline
+  scoring/               README checker scoring
+  analysis.py            survey weights, statistics and chart style for the notebooks
+app/                     Streamlit dashboard (streamlit_app.py, views/, components/)
+notebooks/               01_analysis.ipynb, 02_model.ipynb
+models/                  README-only random forest used by the checker
+data/processed/          analysis-ready data (committed)
+data/raw/                SQLite database and logs (not committed)
+docs/                    screenshots and chart images for this README
+scripts/screenshots.py   regenerates the dashboard screenshots
+tests/                   pytest suite
+config.yaml              sampling design and pipeline settings
+```
+
+## Data sources
+
+- [GitHub REST API](https://docs.github.com/en/rest): repository metadata, READMEs and commit
+  statistics.
+- [GH Archive](https://www.gharchive.org/), queried via the
+  [ClickHouse public playground](https://play.clickhouse.com/): star events.
